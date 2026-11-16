@@ -507,6 +507,20 @@ function assertProxyControllable(level) {
 async function installPac(item, hosts) {
   const current = await proxySettingsGet();
   assertProxyControllable(current.levelOfControl);
+
+  // PAC is a browser-wide setting. Do not silently replace a proxy configured
+  // by the user, the OS, policy, or another extension.
+  const currentMode = current.value && current.value.mode;
+  if (
+    current.levelOfControl !== "controlled_by_this_extension" &&
+    currentMode && currentMode !== "direct"
+  ) {
+    throw new Error(
+      "В Chrome уже настроен системный или пользовательский прокси. " +
+      "Чтобы не менять его поведение для остальных сайтов, сначала переключите прокси Chrome в режим «Без прокси» (Direct)."
+    );
+  }
+
   await chrome.proxy.settings.set({
     scope: "regular",
     value: {
@@ -684,7 +698,7 @@ async function checkProxyItem(id, directIp) {
   const item = state.items.find((entry) => entry.id === id);
   if (!item) throw new Error("Прокси не найден");
 
-  authOverride = { username: item.username || "", password: item.password || "" };
+  authOverride = item;
   const started = Date.now();
   let outcome = null;
   let cancelled = false;
@@ -802,18 +816,33 @@ function replyProxyAuth(callback, creds) {
   }
 }
 
+function proxyMatchesChallenger(item, details) {
+  const challenger = details && details.challenger;
+  if (!item || !challenger || !challenger.host || !challenger.port) return false;
+  return (
+    YTSProxy.stripHost(challenger.host) === YTSProxy.stripHost(item.host) &&
+    Number(challenger.port) === Number(item.port)
+  );
+}
+
 function onProxyAuthRequired(details, callback) {
   if (!details.isProxy) {
     callback();
     return;
   }
   if (authOverride) {
-    replyProxyAuth(callback, authOverride);
+    callback(proxyMatchesChallenger(authOverride, details) && authOverride.username
+      ? { authCredentials: { username: authOverride.username, password: authOverride.password || "" } }
+      : undefined);
     return;
   }
   chrome.storage.local.get("proxy").then((data) => {
     const state = YTSProxy.normalizeProxyState(data.proxy);
     const item = state.enabled ? state.items.find((entry) => entry.id === state.activeId) : null;
+    if (!proxyMatchesChallenger(item, details) || !item.username) {
+      callback();
+      return;
+    }
     replyProxyAuth(callback, item);
   }).catch(() => callback());
 }
