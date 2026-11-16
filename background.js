@@ -33,6 +33,24 @@ function safeEndpoint(value) {
   }
 }
 
+function validateAIEndpoint(value) {
+  let url;
+  try {
+    url = new URL(value);
+  } catch (_) {
+    throw new Error("Некорректный URL API");
+  }
+  if (url.username || url.password) {
+    throw new Error("Не указывайте логин и пароль внутри URL API");
+  }
+  const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  const isLoopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback)) {
+    throw new Error("Для API с токеном требуется HTTPS. HTTP разрешён только для localhost (например, Ollama)");
+  }
+  return url;
+}
+
 function responseHeaderInfo(headers) {
   const result = {};
   const allowed = [
@@ -101,9 +119,10 @@ async function callAI(system, user, opts = {}) {
       maxTokens: opts.maxTokens || Number(cfg.maxTokens) || 0,
     };
 
-    if (!/^https?:\/\//i.test(prof.url || "")) {
+    if (!prof.url) {
       throw new Error("Не задан URL API (откройте ⚙ настройки)");
     }
+    validateAIEndpoint(prof.url);
     if (!prof.model) {
       throw new Error("Не указана модель (откройте ⚙ настройки)");
     }
@@ -350,6 +369,7 @@ async function getAIModels(providerId, profile) {
   if (!modelsUrl) {
     throw new Error("Для этого провайдера автоматическое получение моделей не настроено");
   }
+  validateAIEndpoint(modelsUrl);
 
   const cacheKey = `${providerId}|${modelsUrl}`;
   const stored = await chrome.storage.local.get(AI_MODELS_CACHE_KEY);
