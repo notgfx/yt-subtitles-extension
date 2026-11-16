@@ -60,120 +60,6 @@ async function runInPage(func, args = []) {
   return res && res.result;
 }
 
-function decodeEntities(s) {
-  const ta = document.createElement("textarea");
-  ta.innerHTML = s;
-  return ta.value;
-}
-
-function cleanText(s) {
-  return decodeEntities(s)
-    .replace(/<\/?[a-z][^>]*>/gi, "")
-    .replace(/\u200b/g, "")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
-}
-
-/* ---------- Разбор субтитров ---------- */
-
-function parseJson3(text) {
-  const data = JSON.parse(text);
-  const cues = [];
-  for (const ev of data.events || []) {
-    if (!ev.segs) continue;
-    const t = cleanText(ev.segs.map((s) => s.utf8 || "").join(""));
-    if (!t) continue;
-    const start = ev.tStartMs || 0;
-    cues.push({ start, end: start + (ev.dDurationMs || 2000), text: t });
-  }
-  return cues;
-}
-
-function parseXml(text) {
-  const doc = new DOMParser().parseFromString(text, "text/xml");
-  const cues = [];
-
-  const ps = doc.querySelectorAll("p"); // формат srv3
-  if (ps.length) {
-    ps.forEach((p) => {
-      const t = cleanText(p.textContent || "");
-      if (!t) return;
-      const start = Number(p.getAttribute("t")) || 0;
-      const dur = Number(p.getAttribute("d")) || 2000;
-      cues.push({ start, end: start + dur, text: t });
-    });
-    return cues;
-  }
-
-  doc.querySelectorAll("text").forEach((el) => { // старый формат
-    const t = cleanText(el.textContent || "");
-    if (!t) return;
-    const start = Math.round(parseFloat(el.getAttribute("start") || "0") * 1000);
-    const dur = Math.round(parseFloat(el.getAttribute("dur") || "2") * 1000);
-    cues.push({ start, end: start + dur, text: t });
-  });
-  return cues;
-}
-
-function parseCaptions(text) {
-  const trimmed = text.trim();
-  if (!trimmed) return [];
-  return trimmed.startsWith("{") ? parseJson3(trimmed) : parseXml(trimmed);
-}
-
-/* ---------- Форматы вывода ---------- */
-
-function pad(n, len = 2) {
-  return String(n).padStart(len, "0");
-}
-
-function formatTime(ms, sep) {
-  const h = Math.floor(ms / 3600000);
-  const m = Math.floor((ms % 3600000) / 60000);
-  const s = Math.floor((ms % 60000) / 1000);
-  return `${pad(h)}:${pad(m)}:${pad(s)}${sep}${pad(ms % 1000, 3)}`;
-}
-
-function toSrt(cues) {
-  return cues
-    .map((c, i) => `${i + 1}\n${formatTime(c.start, ",")} --> ${formatTime(c.end, ",")}\n${c.text}\n`)
-    .join("\n");
-}
-
-function toVtt(cues) {
-  const body = cues
-    .map((c) => `${formatTime(c.start, ".")} --> ${formatTime(c.end, ".")}\n${c.text}\n`)
-    .join("\n");
-  return "WEBVTT\n\n" + body;
-}
-
-function toTxt(cues) {
-  return cues.map((c) => c.text.replace(/\n/g, " ")).join("\n") + "\n";
-}
-
-const FORMATS = {
-  srt: { build: toSrt, mime: "application/x-subrip" },
-  vtt: { build: toVtt, mime: "text/vtt" },
-  txt: { build: toTxt, mime: "text/plain" },
-};
-
-function saveFile(filename, content, mime) {
-  const blob = new Blob([content], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
-
-function safeFilename(s) {
-  return (s || "subtitles").replace(/[\\/:*?"<>|\u0000-\u001f]+/g, "_").trim().slice(0, 120);
-}
-
 /* ---------- Интерфейс ---------- */
 
 function trackLabel(t) {
@@ -227,13 +113,13 @@ async function onDownload() {
     if (!r || !r.ok) {
       throw new Error((r && r.error) || "нет ответа от страницы");
     }
-    const cues = parseCaptions(r.text);
+    const cues = YTS.parseCaptions(r.text);
     if (!cues.length) throw new Error("Не удалось разобрать ответ YouTube");
 
     const ext = $("format").value;
-    const fmt = FORMATS[ext];
+    const fmt = YTS.FORMATS[ext];
     const lang = translateTo || track.languageCode;
-    saveFile(`${safeFilename(state.title)} [${state.videoId}].${lang}.${ext}`, fmt.build(cues), fmt.mime);
+    YTS.saveFile(`${YTS.safeFilename(state.title)} [${state.videoId}].${lang}.${ext}`, fmt.build(cues), fmt.mime);
     setStatus(`Готово: ${cues.length} строк`, "ok");
   } catch (e) {
     setStatus(`Ошибка: ${e.message}. Подробности — по ссылке «Отладка».`, "error");
