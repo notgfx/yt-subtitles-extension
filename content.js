@@ -2013,13 +2013,24 @@
     }
     const summary = parsed.summary;
     const active = summary.activeName ? ", активный: " + summary.activeName : "";
-    const mode = summary.enabled ? "включён" : "выключен";
+    const mode = summary.enabled ? "включён в файле" : "выключен в файле";
+    const proxyAddresses = parsed.proxy.items.map((item) =>
+      "  • " + item.scheme.toUpperCase() + " " + item.host + ":" + item.port
+    );
+    const addressPreview = proxyAddresses.length
+      ? "\nАдреса прокси:\n" + proxyAddresses.slice(0, 8).join("\n") +
+        (proxyAddresses.length > 8 ? "\n  … и ещё " + (proxyAddresses.length - 8) : "")
+      : "";
     const agreed = confirm(
       "Найдено: провайдер «" + summary.provider + "», профилей API: " + summary.profiles +
-      ", прокси: " + summary.proxies + " (" + mode + active + "). Текущие настройки будут полностью заменены."
+      ", прокси: " + summary.proxies + " (" + mode + active + ")." + addressPreview +
+      "\n\nНастройки будут заменены. Импортированные прокси сохранятся в списке, но будут выключены. Продолжить?"
     );
     if (!agreed) return;
     try {
+      // Do not activate an imported proxy automatically: the user should review
+      // its address and credentials before routing requests through it.
+      parsed.proxy.enabled = false;
       await chrome.storage.local.set({ ui: parsed.ui, ai: parsed.ai, proxy: parsed.proxy });
       state.ui = Object.assign({
         collapsed: false, pane: "subs", last: "subs", setTab: "provider", format: "srt", promptId: "summary", customPrompt: "", withTs: true, lang: "",
