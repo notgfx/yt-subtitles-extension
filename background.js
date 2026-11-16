@@ -472,6 +472,7 @@ async function getAIModels(providerId, profile) {
 /* ---------- Прокси ---------- */
 
 let authOverride = null;
+const activeSubtitleFetches = new Set();
 let checkLock = false;
 let checkAbort = false;
 let checkFetchAbort = null;
@@ -899,13 +900,22 @@ async function handle(msg, sender) {
     }
 
     case "fetchSubs": {
-      const [r] = await chrome.scripting.executeScript({
-        target: { tabId },
-        world: "MAIN",
-        func: pageFetchSubtitles,
-        args: [msg.baseUrl, msg.tlang || ""],
-      });
-      return { ok: true, data: r && r.result };
+      if (tabId == null) return { ok: false, error: "Не удалось определить вкладку YouTube" };
+      if (activeSubtitleFetches.has(tabId)) {
+        return { ok: false, error: "Загрузка субтитров для этой вкладки уже выполняется. Дождитесь её завершения." };
+      }
+      activeSubtitleFetches.add(tabId);
+      try {
+        const [r] = await chrome.scripting.executeScript({
+          target: { tabId },
+          world: "MAIN",
+          func: pageFetchSubtitles,
+          args: [msg.baseUrl, msg.tlang || ""],
+        });
+        return { ok: true, data: r && r.result };
+      } finally {
+        activeSubtitleFetches.delete(tabId);
+      }
     }
 
     case "analyze": {
