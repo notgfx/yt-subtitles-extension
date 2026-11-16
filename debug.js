@@ -42,7 +42,7 @@ function analyze(text) {
 
 
 async function showAIDiagnostics() {
-  log("\n=== 4. Диагностика ИИ / Grok API ===");
+  log("\n=== 4. Диагностика ИИ API ===");
 
   try {
     const data = await chrome.storage.local.get("__aiDiagnostics");
