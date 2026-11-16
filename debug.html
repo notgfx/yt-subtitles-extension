@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Отладка — Субтитры YouTube</title>
+  <style>
+    :root { color-scheme: light dark; }
+    body { margin: 0; padding: 20px; font: 14px/1.4 system-ui, sans-serif; }
+    h1 { font-size: 18px; margin: 0 0 6px; }
+    p { margin: 0 0 12px; opacity: .8; }
+    button { padding: 8px 14px; margin-right: 8px; border-radius: 6px; border: 1px solid #8886; cursor: pointer; font: inherit; }
+    pre {
+      margin-top: 14px; padding: 12px; border-radius: 8px; background: #8881;
+      font: 12px/1.45 ui-monospace, Menlo, Consolas, monospace;
+      white-space: pre-wrap; word-break: break-all;
+    }
+  </style>
+</head>
+<body>
+  <h1>Отладка загрузки субтитров</h1>
+  <p>
+  Проверка загрузки субтитров YouTube и диагностика запросов к ИИ.
+  Отчёт содержит HTTP-статусы, технические заголовки, ошибки
+  и исходные ответы API. API-ключи не сохраняются.
+</p>
+  <button id="rerun">Запустить заново</button>
+  <button id="copy">Копировать отчёт</button>
+  <pre id="log">Запуск…</pre>
+  <script src="page-fetch.js"></script>
+  <script src="debug.js"></script>
+</body>
+</html>

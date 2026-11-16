@@ -1,0 +1,36 @@
+
+# Secrets and API keys
+.env
+.env.*
+!.env.example
+*secret*
+*credentials*
+
+# Local settings and user data
+settings.local.json
+config.local.json
+proxies.local.json
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and debug
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Python (if used for development)
+__pycache__/
+*.py[cod]
+venv/
+.venv/

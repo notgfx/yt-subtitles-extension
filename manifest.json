@@ -1,0 +1,42 @@
+{
+  "manifest_version": 3,
+  "name": "YouTube Subtitles + AI",
+  "version": "2.1.0",
+  "description": "Панель под видео на YouTube: скачивание субтитров (SRT, VTT, TXT) и ИИ-анализ транскрипта.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "proxy",
+    "webRequest",
+    "webRequestAuthProvider"
+  ],
+  "host_permissions": [
+    "https://www.youtube.com/*",
+    "https://*/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
+  ],
+  "action": {
+    "default_title": "Скачать субтитры",
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.youtube.com/*"
+      ],
+      "js": [
+        "presets.js",
+        "subs-lib.js",
+        "proxy-lib.js",
+        "chunk-lib.js",
+        "content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}
