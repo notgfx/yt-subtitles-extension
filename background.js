@@ -522,11 +522,21 @@ async function installPac(item, hosts) {
     );
   }
 
+  const pacScript = YTSProxy.buildPacScript(item, hosts);
+  const currentPac = current.value && current.value.pacScript && current.value.pacScript.data;
+  if (
+    current.levelOfControl === "controlled_by_this_extension" &&
+    currentMode === "pac_script" &&
+    currentPac === pacScript
+  ) {
+    return; // Already applied; avoid resetting Chrome's proxy for every API call.
+  }
+
   await chrome.proxy.settings.set({
     scope: "regular",
     value: {
       mode: "pac_script",
-      pacScript: { data: YTSProxy.buildPacScript(item, hosts) },
+      pacScript: { data: pacScript },
     },
   });
 }
