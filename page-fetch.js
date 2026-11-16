@@ -264,18 +264,28 @@ async function pageFetchSubtitles(baseUrl, tlang) {
     L("Итоговый запрос: " + describe(u.href));
 
     report(82);
+    let lastHttpError = "";
     for (const fmt of ["json3", ""]) {
       if (fmt) u.searchParams.set("fmt", fmt);
       else u.searchParams.delete("fmt");
       const res = await fetch(u.href, { credentials: "include" });
       const body = await res.text();
       L(`fmt=${fmt || "по умолч."}: HTTP ${res.status}, ${res.headers.get("content-type")}, длина ${body.length}`);
+      if (!res.ok) {
+        lastHttpError = `YouTube вернул HTTP ${res.status}${res.statusText ? " " + res.statusText : ""}`;
+        if (body.trim()) L("Тело ошибки: " + body.slice(0, 300));
+        continue;
+      }
       if (body.trim()) {
         report(100);
         return { ok: true, text: body, log: logLines };
       }
     }
-    return { ok: false, error: "YouTube вернул пустой ответ", log: logLines };
+    return {
+      ok: false,
+      error: lastHttpError || "YouTube вернул пустой ответ",
+      log: logLines,
+    };
   } catch (e) {
     L("ИСКЛЮЧЕНИЕ: " + e);
     return { ok: false, error: String(e), log: logLines };
