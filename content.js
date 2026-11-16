@@ -1003,14 +1003,16 @@
       const r = await send({ type: "getTracks" });
       if (seq !== state.loadSeq) return;
       if (!r.ok) return setMsg("Ошибка: " + r.error, "error");
-      if (r.data && !r.data.error) {
+      if (r.data && !r.data.error && r.data.videoId === vid) {
         info = r.data;
-        if (!info.videoId || info.videoId === vid) break;
+        // PlayerResponse может появиться раньше списка дорожек. Не считаем
+        // временно пустой список окончательным результатом.
+        if (info.tracks && info.tracks.length) break;
       }
-      await sleep(700);
+      if (i < 7) await sleep(700);
     }
     if (seq !== state.loadSeq) return;
-    if (!info || (info.videoId && info.videoId !== vid)) {
+    if (!info) {
       return setMsg("Не удалось прочитать данные видео. Обновите страницу (F5).", "error");
     }
 

@@ -153,16 +153,29 @@ async function init() {
 
   setStatus("Читаю список субтитров…");
   try {
-    const info = await runInPage(pageGetTracks);
-    if (!info || info.error) throw new Error((info && info.error) || "нет ответа от страницы");
+    const pageUrl = new URL(tab.url);
+    const expectedVideoId = pageUrl.pathname === "/watch"
+      ? pageUrl.searchParams.get("v") || ""
+      : (pageUrl.pathname.match(/^\/(?:shorts|live)\/([^/?]+)/) || [])[1] || "";
+    let info = null;
+    for (let i = 0; i < 8; i++) {
+      const current = await runInPage(pageGetTracks);
+      if (current && !current.error && current.videoId === expectedVideoId) {
+        info = current;
+        // YouTube может отдать videoDetails до того, как появятся captionTracks.
+        if (info.tracks && info.tracks.length) break;
+      }
+      if (i < 7) await new Promise((resolve) => setTimeout(resolve, 700));
+    }
+    if (!info) throw new Error("Не удалось прочитать данные видео. Попробуйте открыть меню расширения ещё раз.");
 
     state.videoId = info.videoId;
     state.title = info.title;
-    state.tracks = info.tracks;
-    state.translationLanguages = info.translationLanguages;
-    $("title").textContent = info.title;
+    state.tracks = info.tracks || [];
+    state.translationLanguages = info.translationLanguages || [];
+    $("title").textContent = info.title || "";
 
-    if (!info.tracks.length) {
+    if (!state.tracks.length) {
       const why = info.status && info.status !== "OK" ? ` (${info.reason || info.status})` : "";
       setStatus("У этого видео нет субтитров или они недоступны" + why, "error");
       return;
