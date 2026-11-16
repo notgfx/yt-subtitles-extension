@@ -64,7 +64,22 @@ async function pageFetchSubtitles(baseUrl, tlang) {
     }
   };
 
-  const target = new URL(baseUrl);
+  let target;
+  try {
+    target = new URL(baseUrl, location.href);
+  } catch (_) {
+    return { ok: false, error: "Некорректный URL дорожки субтитров", log: logLines };
+  }
+  // This function runs in YouTube's MAIN world with the page's cookies.
+  // Only accept YouTube's own timedtext endpoint, never an arbitrary URL.
+  if (
+    target.protocol !== "https:" ||
+    target.origin !== location.origin ||
+    target.pathname !== "/api/timedtext" ||
+    target.username || target.password
+  ) {
+    return { ok: false, error: "Отклонён недоверенный URL субтитров: ожидался HTTPS endpoint YouTube /api/timedtext", log: logLines };
+  }
   const videoId = target.searchParams.get("v");
   const wantedLang = target.searchParams.get("lang");
   const wantedKind = target.searchParams.get("kind") || "";
