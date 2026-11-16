@@ -712,6 +712,8 @@
   }
 
   function onVideoChanged(vid) {
+    // Invalidate in-flight transcript loads from the previous SPA route.
+    state.busy = false;
     state.videoId = vid;
     state.title = "";
     state.tracks = [];
@@ -1067,6 +1069,8 @@
     if (state.busy) return;
     const track = currentTrack();
     if (!track) return;
+    const requestVideoId = state.videoId;
+    const requestLoadSeq = state.loadSeq;
 
     state.busy = true;
     q("btnLoad").disabled = true;
@@ -1080,6 +1084,7 @@
     try {
       const tlang = currentTlang();
       const r = await send({ type: "fetchSubs", baseUrl: track.baseUrl, tlang });
+      if (requestVideoId !== state.videoId || requestLoadSeq !== state.loadSeq) return;
       if (!r.ok) throw new Error(r.error);
       const res = r.data;
       if (!res || !res.ok) throw new Error((res && res.error) || "нет ответа от страницы");
@@ -1100,9 +1105,11 @@
       setMsg(`Ошибка: ${e.message}. Подробности — в «Отладке» (иконка жука).`, "error");
     } finally {
       document.removeEventListener("yts-subs-progress", onProg);
-      setProgress(null);
-      state.busy = false;
-      q("btnLoad").disabled = false;
+      if (requestVideoId === state.videoId && requestLoadSeq === state.loadSeq) {
+        setProgress(null);
+        state.busy = false;
+        q("btnLoad").disabled = false;
+      }
     }
   }
 
